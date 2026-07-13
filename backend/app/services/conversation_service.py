@@ -124,6 +124,8 @@ class ConversationService:
             }
         )
         updated_convo = await self.db.conversations.find_one({"id": conversation_id})
+        if updated_convo is None:
+            raise ConversationServiceError("CONVERSATION_NOT_FOUND", "Conversation not found")
         
         r = await get_redis()
         await r.publish(EVENT_CHANNEL, json.dumps({
@@ -159,6 +161,8 @@ class ConversationService:
             }
         )
         updated_convo = await self.db.conversations.find_one({"id": conversation_id})
+        if updated_convo is None:
+            raise ConversationServiceError("CONVERSATION_NOT_FOUND", "Conversation not found")
 
         r = await get_redis()
         await r.publish(EVENT_CHANNEL, json.dumps({
