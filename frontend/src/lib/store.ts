@@ -136,7 +136,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((state) => {
       const current = state.typingUsers[conversationId] || [];
       const updated = isTyping
-        ? [...new Set([...current, userId])]
+        ? Array.from(new Set([...current, userId]))
         : current.filter((id) => id !== userId);
       return {
         typingUsers: { ...state.typingUsers, [conversationId]: updated },
