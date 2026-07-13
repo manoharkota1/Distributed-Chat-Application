@@ -65,7 +65,10 @@ class ConversationService:
             online = await get_online_users(member_ids)
             last_message = await self.db.messages.find_one({"conversation_id": conversation["id"]}, sort=[("created_at", DESCENDING), ("id", DESCENDING)])
             membership = next((member for member in conversation["members"] if member["user_id"] == user_id), None)
-            unread_query: dict = {"conversation_id": conversation["id"]}
+            unread_query: dict = {
+                "conversation_id": conversation["id"],
+                "sender_id": {"$ne": user_id},
+            }
             if membership and membership.get("last_read_message_id"):
                 read_message = await self.db.messages.find_one({"id": membership["last_read_message_id"]}, {"created_at": 1})
                 if read_message:
