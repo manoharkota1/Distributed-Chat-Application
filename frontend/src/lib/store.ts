@@ -84,7 +84,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   conversations: [],
   activeConversationId: null,
   setConversations: (conversations) => set({ conversations }),
-  setActiveConversation: (id) => set({ activeConversationId: id }),
+  setActiveConversation: (id) =>
+    set((state) => ({
+      activeConversationId: id,
+      conversations: state.conversations.map((c) =>
+        c.id === id ? { ...c, unread_count: 0 } : c
+      ),
+    })),
   updateConversation: (id, updates) =>
     set((state) => ({
       conversations: state.conversations.map((c) =>
