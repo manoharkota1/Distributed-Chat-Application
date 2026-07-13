@@ -10,14 +10,6 @@ A horizontally scalable, real-time messaging platform built with **Next.js**, **
 
 ---
 
-## 🔗 Links
-
-- **GitHub Repository:** [github.com/manoharkota1/Distributed-Chat-Application](https://github.com/manoharkota1/Distributed-Chat-Application)
-- **Live Demo:** [frontend-nu-two-49.vercel.app](https://frontend-nu-two-49.vercel.app)
-- **LinkedIn:** [linkedin.com/in/manoharkota-in](https://linkedin.com/in/manoharkota-in)
-
----
-
 ## 📖 Project Overview
 
 Distributed Chat Application is a production-grade, real-time messaging platform designed to demonstrate the same architectural patterns used by large-scale chat systems (Slack, WhatsApp Web, Discord) at a portfolio-appropriate scale. It supports one-to-one and group conversations over authenticated WebSocket connections, with read receipts, typing indicators, live presence, and infinite-scroll message history.
