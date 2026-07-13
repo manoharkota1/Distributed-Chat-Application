@@ -33,25 +33,27 @@ REFRESH_COOKIE_MAX_AGE = settings.refresh_token_expire_days * 24 * 60 * 60
 
 def _set_refresh_cookie(response: Response, raw_token: str) -> None:
     """Set the refresh token as an httpOnly, Secure, SameSite cookie."""
+    samesite = "none" if settings.cookie_secure else "lax"
     response.set_cookie(
         key=REFRESH_COOKIE_NAME,
         value=raw_token,
         max_age=REFRESH_COOKIE_MAX_AGE,
         httponly=True,
         secure=settings.cookie_secure,
-        samesite="strict",
+        samesite=samesite,
         path="/auth",  # Scoped to auth endpoints only
     )
 
 
 def _clear_refresh_cookie(response: Response) -> None:
     """Remove the refresh token cookie."""
+    samesite = "none" if settings.cookie_secure else "lax"
     response.delete_cookie(
         key=REFRESH_COOKIE_NAME,
         path="/auth",
         httponly=True,
         secure=settings.cookie_secure,
-        samesite="strict",
+        samesite=samesite,
     )
 
 

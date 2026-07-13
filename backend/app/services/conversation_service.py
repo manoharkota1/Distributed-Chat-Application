@@ -52,6 +52,16 @@ class ConversationService:
             "members": [{"user_id": member_id, "last_read_message_id": None, "joined_at": now} for member_id in all_member_ids],
         }
         await self.db.conversations.insert_one(conversation)
+
+        r = await get_redis()
+        await r.publish(EVENT_CHANNEL, json.dumps({
+            "type": "conversation.update",
+            "payload": {
+                "conversation_id": conversation["id"],
+                "action": "created",
+            }
+        }))
+
         return conversation
 
     async def get_user_conversations(self, user_id: str, offset: int = 0, limit: int = 20) -> tuple[list[dict], int]:
