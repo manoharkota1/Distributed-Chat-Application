@@ -21,6 +21,12 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      const hasSession = typeof window !== 'undefined' && localStorage.getItem('has_session') === 'true';
+      if (!hasSession) {
+        setChecking(false);
+        return;
+      }
+
       try {
         const refreshed = await refreshAccessToken();
         if (refreshed) {
@@ -28,10 +34,16 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
           if (res.data) {
             setUser(res.data);
             wsClient.connect();
+            localStorage.setItem('has_session', 'true');
+          } else {
+            localStorage.removeItem('has_session');
           }
+        } else {
+          localStorage.removeItem('has_session');
         }
       } catch (err) {
         console.error('[SessionProvider] Error restoring session:', err);
+        localStorage.removeItem('has_session');
       } finally {
         setChecking(false);
       }
@@ -53,14 +65,16 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       }
     } else {
       // Unauthenticated users should not access protected routes
-      if (!isPublicPath && pathname !== '/') {
+      if (!isPublicPath) {
         router.replace('/login');
       }
     }
   }, [checking, isAuthenticated, pathname, router]);
 
-  // Prevent flash of content during initial auth validation
-  if (checking) {
+  const isPublicPath = PUBLIC_PATHS.includes(pathname) || pathname === '/';
+
+  // Prevent flash of content during initial auth validation on protected routes only
+  if (checking && !isPublicPath) {
     return (
       <div className="auth-container" style={{ display: 'grid', placeItems: 'center', height: '100vh' }}>
         <div className="loading-container">

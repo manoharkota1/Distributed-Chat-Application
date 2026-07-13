@@ -14,8 +14,6 @@ export default function HomePage() {
   useEffect(() => {
     if (isAuthenticated) {
       router.push('/inbox');
-    } else {
-      router.push('/login');
     }
   }, [isAuthenticated, router]);
 
