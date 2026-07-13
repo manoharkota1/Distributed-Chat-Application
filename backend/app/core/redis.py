@@ -49,16 +49,16 @@ class AsyncUpstashRedis:
     async def execute(self, command: list[Any]) -> Any:
         return await self._call("execute", command)
 
+    def _pipeline_exists(self, keys: list[str]) -> list[Any]:
+        pipeline = self._client.pipeline()
+        for key in keys:
+            pipeline.exists(key)
+        return pipeline.exec()
+
     async def exists_many(self, keys: list[str]) -> list[int]:
         if not keys:
             return []
-        def pipeline_exists() -> list[Any]:
-            pipeline = self._client.pipeline()
-            for key in keys:
-                pipeline.exists(key)
-            return pipeline.exec()
-
-        res = await asyncio.to_thread(pipeline_exists)
+        res = await asyncio.to_thread(self._pipeline_exists, keys)
         return [int(value) for value in res]
 
 
