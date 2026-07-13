@@ -242,6 +242,45 @@ hooks/      # useInfiniteMessages (cursor pagination), useTypingIndicator
 
 The application is fully containerized. Docker Compose defines the frontend, a scalable pool of FastAPI instances, PostgreSQL, Redis, and an Nginx load balancer for local and staging environments. The live demo frontend is deployed on Vercel.
 
+## 💻 Run Locally
+
+Docker Desktop is the quickest way to run the complete stack. It starts PostgreSQL,
+Redis, two backend instances, Nginx, and the frontend; the database migration runs
+automatically before either backend starts.
+
+For the non-Docker workflow, use Python 3.12 (the supported backend runtime) and
+Node.js 22 with pnpm.
+
+1. Copy `.env.example` to `.env` and replace the example database password and JWT
+   secret before using this outside local development.
+2. Start Docker Desktop, then run:
+
+   ```bash
+   docker compose up --build
+   ```
+
+3. Open `http://localhost:3000`. The API health check is available at
+   `http://localhost/health`.
+
+For a non-Docker backend, start PostgreSQL and Redis, create `.env` from the example,
+then run the following from `backend/`:
+
+```bash
+python -m pip install -r requirements.txt -r requirements-dev.txt
+alembic upgrade head
+uvicorn app.main:app --reload
+```
+
+In a second terminal, run the frontend from `frontend/`:
+
+```bash
+pnpm install --frozen-lockfile
+pnpm dev
+```
+
+Use `COOKIE_SECURE=false` only when testing on local HTTP. Set it to `true` for an
+HTTPS deployment.
+
 **CI/CD Pipeline (GitHub Actions)**
 
 1. Lint and static analysis on every push

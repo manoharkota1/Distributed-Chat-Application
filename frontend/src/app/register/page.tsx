@@ -25,10 +25,20 @@ export default function RegisterPage() {
 
   return (
     <div className="auth-container">
-      <div className="auth-card glass-card">
+      <aside className="auth-aside">
+        <div className="auth-brand"><span className="app-mark">DC</span> Distributed Chat</div>
+        <div className="auth-aside-content">
+          <p className="eyebrow">Built for focus</p>
+          <h1>A calmer place to keep in touch.</h1>
+          <p>Start a conversation, share an update, and keep every important message close at hand.</p>
+        </div>
+        <span className="auth-aside-note">Your conversations are ready when you are.</span>
+      </aside>
+      <main className="auth-panel">
+      <div className="auth-card">
         <div className="auth-header">
-          <h1>Create Account</h1>
-          <p>Join the conversation</p>
+          <h2>Create your account</h2>
+          <p>Join the conversation in just a moment.</p>
         </div>
 
         {error && <div className="auth-error">{error}</div>}
@@ -84,12 +94,11 @@ export default function RegisterPage() {
 
           <button
             type="submit"
-            className="btn btn-primary"
+            className="btn btn-primary btn-full"
             disabled={loading}
-            style={{ width: '100%', padding: '14px' }}
           >
             {loading ? (
-              <span className="loading-spinner" style={{ width: 18, height: 18 }} />
+              <span className="loading-spinner" aria-label="Creating account" />
             ) : (
               'Create Account'
             )}
@@ -98,9 +107,10 @@ export default function RegisterPage() {
 
         <div className="auth-footer">
           Already have an account?{' '}
-          <Link href="/login">Sign in</Link>
+          <Link href="/login" className="text-link">Sign in</Link>
         </div>
       </div>
+      </main>
     </div>
   );
 }

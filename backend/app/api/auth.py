@@ -6,12 +6,11 @@ Refresh tokens are delivered as httpOnly, Secure, SameSite=Strict cookies.
 """
 from __future__ import annotations
 
-
 from fastapi import APIRouter, Depends, Header, Response
-from sqlalchemy.ext.asyncio import AsyncSession
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.config import settings
-from app.core.database import get_db_session
+from app.core.database import get_db
 from app.core.dependencies import get_current_user_id, get_refresh_token_from_cookie
 from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse
 from app.schemas.common import APIResponse
@@ -31,7 +30,7 @@ def _set_refresh_cookie(response: Response, raw_token: str) -> None:
         value=raw_token,
         max_age=REFRESH_COOKIE_MAX_AGE,
         httponly=True,
-        secure=True,
+        secure=settings.cookie_secure,
         samesite="strict",
         path="/auth",  # Scoped to auth endpoints only
     )
@@ -43,7 +42,7 @@ def _clear_refresh_cookie(response: Response) -> None:
         key=REFRESH_COOKIE_NAME,
         path="/auth",
         httponly=True,
-        secure=True,
+        secure=settings.cookie_secure,
         samesite="strict",
     )
 
@@ -53,7 +52,7 @@ async def register(
     body: RegisterRequest,
     response: Response,
     user_agent: str | None = Header(None),
-    db: AsyncSession = Depends(get_db_session),
+    db: AsyncDatabase = Depends(get_db),
 ) -> APIResponse:
     """
     Create a new account and issue access + refresh tokens.
@@ -86,7 +85,7 @@ async def login(
     body: LoginRequest,
     response: Response,
     user_agent: str | None = Header(None),
-    db: AsyncSession = Depends(get_db_session),
+    db: AsyncDatabase = Depends(get_db),
 ) -> APIResponse:
     """
     Authenticate with email + password and issue tokens.
@@ -118,7 +117,7 @@ async def refresh(
     response: Response,
     raw_refresh: str = Depends(get_refresh_token_from_cookie),
     user_agent: str | None = Header(None),
-    db: AsyncSession = Depends(get_db_session),
+    db: AsyncDatabase = Depends(get_db),
 ) -> APIResponse:
     """
     Rotate the refresh token and issue a new access token.
@@ -150,7 +149,7 @@ async def logout(
     response: Response,
     raw_refresh: str = Depends(get_refresh_token_from_cookie),
     user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db_session),
+    db: AsyncDatabase = Depends(get_db),
 ) -> APIResponse:
     """Revoke the current refresh token and clear the cookie."""
     auth_service = AuthService(db)

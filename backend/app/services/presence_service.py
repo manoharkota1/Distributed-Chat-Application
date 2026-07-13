@@ -7,7 +7,6 @@ The TTL is refreshed on every WebSocket heartbeat (30s).
 """
 from __future__ import annotations
 
-
 from app.core.redis import (
     get_online_users,
     is_user_online,

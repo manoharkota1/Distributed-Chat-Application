@@ -5,7 +5,6 @@ All WS messages share a common envelope: {"type", "payload", "request_id"}.
 """
 from __future__ import annotations
 
-
 import enum
 from typing import Any
 

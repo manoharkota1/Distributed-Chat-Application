@@ -1,123 +1,112 @@
-"""
-Redis connection pool and helper utilities.
-
-Redis serves four roles in this application:
-1. Pub/Sub — cross-instance message fanout
-2. Presence — TTL keys tracking online status
-3. Typing indicators — auto-expiring TTL keys
-4. Rate limiting — sliding-window counters
-"""
+"""Upstash Redis REST integration for presence, typing, events, and rate limiting."""
 from __future__ import annotations
 
+import asyncio
+from collections.abc import Callable
+from typing import Any
 
-import redis.asyncio as redis
+from upstash_redis import Redis
 
 from app.core.config import settings
 
-# ── Connection Pool ──────────────────────────────────────────────
-
-_redis_pool: redis.Redis | None = None
-
-
-async def get_redis() -> redis.Redis:
-    """Return the shared async Redis connection (lazy-initialized)."""
-    global _redis_pool
-    if _redis_pool is None:
-        _redis_pool = redis.from_url(
-            settings.redis_url,
-            decode_responses=True,
-            max_connections=50,
-        )
-    return _redis_pool
-
-
-async def close_redis() -> None:
-    """Close the Redis connection pool during shutdown."""
-    global _redis_pool
-    if _redis_pool is not None:
-        await _redis_pool.aclose()
-        _redis_pool = None
-
-
-# ── Key Patterns ─────────────────────────────────────────────────
-
 PRESENCE_KEY = "presence:{user_id}"
 TYPING_KEY = "typing:{conversation_id}:{user_id}"
-CHANNEL_KEY = "chan:convo:{conversation_id}"
 RATE_LIMIT_KEY = "ratelimit:msg:{user_id}"
-
-# ── TTL Constants ────────────────────────────────────────────────
-
+EVENT_CHANNEL = settings.upstash_event_channel
 PRESENCE_TTL_SECONDS = 30
 TYPING_TTL_SECONDS = 5
 
 
-# ── Presence Helpers ─────────────────────────────────────────────
+class AsyncUpstashRedis:
+    """Async facade around Upstash's connectionless HTTP Python client."""
+
+    def __init__(self, client: Redis) -> None:
+        self._client = client
+
+    async def _call(self, method: str, *args: Any, **kwargs: Any) -> Any:
+        operation: Callable[..., Any] = getattr(self._client, method)
+        return await asyncio.to_thread(operation, *args, **kwargs)
+
+    async def set(self, key: str, value: str, ex: int | None = None) -> Any:
+        return await self._call("set", key, value, ex=ex)
+
+    async def delete(self, key: str) -> Any:
+        return await self._call("delete", key)
+
+    async def exists(self, key: str) -> int:
+        return int(await self._call("exists", key))
+
+    async def publish(self, channel: str, message: str) -> int:
+        return int(await self._call("publish", channel, message))
+
+    async def execute(self, command: list[Any]) -> Any:
+        return await self._call("execute", command)
+
+    async def exists_many(self, keys: list[str]) -> list[int]:
+        def pipeline_exists() -> list[int]:
+            pipeline = self._client.pipeline()
+            for key in keys:
+                pipeline.exists(key)
+            return pipeline.exec()
+
+        return [int(value) for value in await asyncio.to_thread(pipeline_exists)]
+
+
+_redis: AsyncUpstashRedis | None = None
+
+
+async def get_redis() -> AsyncUpstashRedis:
+    global _redis
+    if _redis is None:
+        client = Redis(
+            url=settings.upstash_redis_rest_url,
+            token=settings.upstash_redis_rest_token,
+            rest_retries=settings.upstash_redis_retries,
+            rest_retry_interval=settings.upstash_redis_retry_interval,
+            allow_telemetry=False,
+        )
+        _redis = AsyncUpstashRedis(client)
+    return _redis
+
+
+async def close_redis() -> None:
+    """Reset the connectionless Upstash client facade during shutdown."""
+    global _redis
+    _redis = None
+
 
 async def set_user_online(user_id: str) -> None:
-    """Mark a user as online by setting/refreshing a TTL key."""
-    r = await get_redis()
-    key = PRESENCE_KEY.format(user_id=user_id)
-    await r.set(key, "online", ex=PRESENCE_TTL_SECONDS)
+    await (await get_redis()).set(PRESENCE_KEY.format(user_id=user_id), "online", ex=PRESENCE_TTL_SECONDS)
 
 
 async def set_user_offline(user_id: str) -> None:
-    """Explicitly remove a user's presence key."""
-    r = await get_redis()
-    key = PRESENCE_KEY.format(user_id=user_id)
-    await r.delete(key)
+    await (await get_redis()).delete(PRESENCE_KEY.format(user_id=user_id))
 
 
 async def is_user_online(user_id: str) -> bool:
-    """Check whether a user's presence key exists."""
-    r = await get_redis()
-    key = PRESENCE_KEY.format(user_id=user_id)
-    return await r.exists(key) == 1
+    return bool(await (await get_redis()).exists(PRESENCE_KEY.format(user_id=user_id)))
 
 
 async def get_online_users(user_ids: list[str]) -> dict[str, bool]:
-    """Batch-check online status for a list of user IDs."""
-    r = await get_redis()
-    pipe = r.pipeline()
-    for uid in user_ids:
-        pipe.exists(PRESENCE_KEY.format(user_id=uid))
-    results = await pipe.execute()
-    return {uid: bool(res) for uid, res in zip(user_ids, results)}
+    if not user_ids:
+        return {}
+    redis = await get_redis()
+    results = await redis.exists_many([PRESENCE_KEY.format(user_id=user_id) for user_id in user_ids])
+    return {user_id: bool(result) for user_id, result in zip(user_ids, results)}
 
-
-# ── Typing Indicator Helpers ─────────────────────────────────────
 
 async def set_typing(conversation_id: str, user_id: str) -> None:
-    """Set typing indicator with auto-expiry (no explicit stop needed)."""
-    r = await get_redis()
-    key = TYPING_KEY.format(conversation_id=conversation_id, user_id=user_id)
-    await r.set(key, "1", ex=TYPING_TTL_SECONDS)
+    await (await get_redis()).set(TYPING_KEY.format(conversation_id=conversation_id, user_id=user_id), "1", ex=TYPING_TTL_SECONDS)
 
 
 async def clear_typing(conversation_id: str, user_id: str) -> None:
-    """Explicitly clear a typing indicator."""
-    r = await get_redis()
-    key = TYPING_KEY.format(conversation_id=conversation_id, user_id=user_id)
-    await r.delete(key)
+    await (await get_redis()).delete(TYPING_KEY.format(conversation_id=conversation_id, user_id=user_id))
 
-
-# ── Rate Limiting ────────────────────────────────────────────────
 
 async def check_rate_limit(user_id: str) -> bool:
-    """
-    Check if a user has exceeded the message send rate limit.
-
-    Uses a simple sliding-window counter approach:
-    - Increment the counter for the user's key.
-    - Set TTL on first increment to create the window.
-    - Return True if under the limit, False if exceeded.
-    """
-    r = await get_redis()
-    key = RATE_LIMIT_KEY.format(user_id=user_id)
-
-    current = await r.incr(key)
-    if current == 1:
-        # First message in this window — set expiry
-        await r.expire(key, settings.rate_limit_window_seconds)
-
-    return current <= settings.rate_limit_messages_per_window
+    """Atomically increment and expire a fixed message-send window via Lua."""
+    script = "local c=redis.call('INCR',KEYS[1]);if c==1 then redis.call('EXPIRE',KEYS[1],ARGV[1]) end;return c"
+    current = await (await get_redis()).execute([
+        "EVAL", script, 1, RATE_LIMIT_KEY.format(user_id=user_id), settings.rate_limit_window_seconds,
+    ])
+    return int(current) <= settings.rate_limit_messages_per_window

@@ -6,27 +6,33 @@ Wires together all routers, middleware, and lifecycle hooks.
 
 from __future__ import annotations
 
+import json
 import logging
-from contextlib import asynccontextmanager
 from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.core.config import settings
-from app.core.redis import close_redis
 from app.api.auth import router as auth_router
-from app.api.users import router as users_router
 from app.api.conversations import router as conversations_router
-from app.ws.router import router as ws_router
+from app.api.users import router as users_router
+from app.core.config import settings
+from app.core.database import close_mongodb, connect_mongodb
+from app.core.redis import close_redis, get_redis
 from app.pubsub.redis_bridge import redis_bridge
+from app.ws.router import router as ws_router
 
 # ── Logging ──────────────────────────────────────────────────────
 
-logging.basicConfig(
-    level=logging.DEBUG if settings.debug else logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
+class StructuredFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        return json.dumps({"timestamp": self.formatTime(record), "level": record.levelname, "logger": record.name, "message": record.getMessage()})
+
+
+handler = logging.StreamHandler()
+handler.setFormatter(StructuredFormatter())
+logging.basicConfig(level=logging.DEBUG if settings.debug else logging.INFO, handlers=[handler], force=True)
 logger = logging.getLogger(__name__)
 
 
@@ -36,13 +42,17 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Manage startup/shutdown of background services."""
     # Startup
-    logger.info("Starting %s", settings.app_name)
+    settings.validate_runtime_settings()
+    await connect_mongodb()
+    await get_redis()
     await redis_bridge.start()
+    logger.info("application_started", extra={"app": settings.app_name})
     yield
     # Shutdown
     logger.info("Shutting down %s", settings.app_name)
     await redis_bridge.stop()
     await close_redis()
+    await close_mongodb()
 
 
 # ── FastAPI App ──────────────────────────────────────────────────

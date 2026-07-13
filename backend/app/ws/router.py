@@ -9,16 +9,14 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
-from sqlalchemy.ext.asyncio import AsyncSession
+import jwt as pyjwt
+from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 
-from app.core.database import get_db_session, async_session_factory
+from app.core.database import get_database
 from app.core.security import decode_access_token
 from app.services.presence_service import PresenceService
 from app.ws.handlers import handle_ws_message
 from app.ws.manager import manager
-
-import jwt as pyjwt
 
 logger = logging.getLogger(__name__)
 
@@ -64,16 +62,10 @@ async def websocket_endpoint(
             # Receive message and handle it
             raw_data = await websocket.receive_text()
 
-            # Use a fresh DB session for each message
-            async with async_session_factory() as db:
-                try:
-                    await handle_ws_message(user_id, raw_data, db)
-                    await db.commit()
-                except Exception:
-                    await db.rollback()
-                    logger.exception(
-                        "Error processing WS message from user %s", user_id
-                    )
+            try:
+                await handle_ws_message(user_id, raw_data, get_database())
+            except Exception:
+                logger.exception("Error processing WS message from user %s", user_id)
 
             # Refresh presence on every message (heartbeat)
             await PresenceService.set_online(user_id)

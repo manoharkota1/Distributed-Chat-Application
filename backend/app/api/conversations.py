@@ -6,11 +6,10 @@ All endpoints verify membership before returning data.
 """
 from __future__ import annotations
 
-
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.ext.asyncio import AsyncSession
+from pymongo.asynchronous.database import AsyncDatabase
 
-from app.core.database import get_db_session
+from app.core.database import get_db
 from app.core.dependencies import get_current_user_id
 from app.schemas.common import APIResponse
 from app.schemas.conversation import ConversationCreate, ReadUpdateRequest
@@ -26,7 +25,7 @@ async def list_conversations(
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db_session),
+    db: AsyncDatabase = Depends(get_db),
 ) -> APIResponse:
     """Get paginated list of the user's conversations."""
     service = ConversationService(db)
@@ -45,7 +44,7 @@ async def list_conversations(
 async def create_conversation(
     body: ConversationCreate,
     user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db_session),
+    db: AsyncDatabase = Depends(get_db),
 ) -> APIResponse:
     """Create a new direct or group conversation."""
     service = ConversationService(db)
@@ -60,10 +59,10 @@ async def create_conversation(
         return APIResponse.fail(e.code, e.message)
 
     return APIResponse.success({
-        "id": str(convo.id),
-        "type": convo.type.value,
-        "name": convo.name,
-        "created_at": convo.created_at.isoformat(),
+        "id": convo["id"],
+        "type": convo["type"],
+        "name": convo.get("name"),
+        "created_at": convo["created_at"].isoformat(),
     })
 
 
@@ -73,7 +72,7 @@ async def get_messages(
     cursor: str | None = Query(None),
     limit: int = Query(50, ge=1, le=100),
     user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db_session),
+    db: AsyncDatabase = Depends(get_db),
 ) -> APIResponse:
     """Get cursor-paginated message history for a conversation."""
     service = MessageService(db)
@@ -99,7 +98,7 @@ async def send_message(
     conversation_id: str,
     body: MessageCreate,
     user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db_session),
+    db: AsyncDatabase = Depends(get_db),
 ) -> APIResponse:
     """Send a message via REST (fallback path — WebSocket is preferred)."""
     service = MessageService(db)
@@ -113,11 +112,11 @@ async def send_message(
         return APIResponse.fail(e.code, e.message)
 
     return APIResponse.success({
-        "id": str(message.id),
-        "conversation_id": str(message.conversation_id),
-        "sender_id": str(message.sender_id),
-        "content": message.content,
-        "created_at": message.created_at.isoformat(),
+        "id": message["id"],
+        "conversation_id": message["conversation_id"],
+        "sender_id": message["sender_id"],
+        "content": message["content"],
+        "created_at": message["created_at"].isoformat(),
     })
 
 
@@ -126,7 +125,7 @@ async def update_read_position(
     conversation_id: str,
     body: ReadUpdateRequest,
     user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db_session),
+    db: AsyncDatabase = Depends(get_db),
 ) -> APIResponse:
     """Update the caller's last-read message in a conversation."""
     service = ConversationService(db)

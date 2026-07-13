@@ -1,79 +1,66 @@
-"""
-Application configuration loaded from environment variables.
-
-Uses pydantic-settings to provide validated, typed configuration with
-sensible defaults for local development.
-"""
-
+"""Validated application configuration sourced only from environment variables."""
 from __future__ import annotations
+
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+
 
 class Settings(BaseSettings):
-    """Application settings populated from environment variables."""
-
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=PROJECT_ROOT / ".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
     )
 
-    # ── Application ──────────────────────────────────────────────
     app_name: str = "Distributed Chat Application"
     debug: bool = False
-
-    # ── Backend Server ───────────────────────────────────────────
     backend_host: str = "0.0.0.0"
     backend_port: int = 8000
     backend_cors_origins: list[str] = ["http://localhost:3000"]
 
-    # ── PostgreSQL ───────────────────────────────────────────────
-    postgres_host: str = "localhost"
-    postgres_port: int = 5432
-    postgres_db: str = "chat_db"
-    postgres_user: str = "chatuser"
-    postgres_password: str = "changeme_db_password"
+    mongodb_uri: str = ""
+    mongodb_database: str = "chat_db"
+    mongodb_max_pool_size: int = 50
+    mongodb_min_pool_size: int = 1
+    mongodb_server_selection_timeout_ms: int = 5000
+    mongodb_connect_timeout_ms: int = 5000
 
-    # ── Redis ────────────────────────────────────────────────────
-    redis_host: str = "localhost"
-    redis_port: int = 6379
-    redis_password: str = ""
+    upstash_redis_rest_url: str = ""
+    upstash_redis_rest_token: str = ""
+    upstash_redis_retries: int = 2
+    upstash_redis_retry_interval: float = 0.5
+    upstash_event_channel: str = "chat:events"
 
-    # ── JWT / Auth ───────────────────────────────────────────────
-    jwt_secret_key: str = "changeme_super_secret_jwt_key_at_least_32_chars"
+    jwt_secret_key: str = ""
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 7
-
-    # ── Rate Limiting ────────────────────────────────────────────
+    cookie_secure: bool = True
     rate_limit_messages_per_window: int = 20
     rate_limit_window_seconds: int = 10
 
-    # ── Derived Properties ───────────────────────────────────────
-
-    @property
-    def database_url(self) -> str:
-        """Async PostgreSQL connection string for SQLAlchemy."""
-        return (
-            f"postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}"
-            f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
-        )
-
-    @property
-    def database_url_sync(self) -> str:
-        """Synchronous PostgreSQL connection string (for Alembic)."""
-        return (
-            f"postgresql://{self.postgres_user}:{self.postgres_password}"
-            f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
-        )
-
-    @property
-    def redis_url(self) -> str:
-        """Redis connection string."""
-        password_part = f":{self.redis_password}@" if self.redis_password else ""
-        return f"redis://{password_part}{self.redis_host}:{self.redis_port}/0"
+    def validate_runtime_settings(self) -> None:
+        """Fail fast on startup rather than accepting insecure placeholder settings."""
+        required = {
+            "MONGODB_URI": self.mongodb_uri,
+            "UPSTASH_REDIS_REST_URL": self.upstash_redis_rest_url,
+            "UPSTASH_REDIS_REST_TOKEN": self.upstash_redis_rest_token,
+            "JWT_SECRET_KEY": self.jwt_secret_key,
+        }
+        missing = [name for name, value in required.items() if not value]
+        if missing:
+            joined = ", ".join(missing)
+            raise RuntimeError(f"Missing required environment variables: {joined}")
+        if len(self.jwt_secret_key) < 32:
+            raise RuntimeError("JWT_SECRET_KEY must be at least 32 characters long")
+        if not self.mongodb_uri.startswith(("mongodb://", "mongodb+srv://")):
+            raise RuntimeError("MONGODB_URI must be a mongodb:// or mongodb+srv:// URI")
+        if not self.upstash_redis_rest_url.startswith("https://"):
+            raise RuntimeError("UPSTASH_REDIS_REST_URL must use HTTPS")
 
 
 settings = Settings()

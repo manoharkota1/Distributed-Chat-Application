@@ -6,7 +6,6 @@ and {"data": null, "error": {"code": ..., "message": ...}} on failure.
 """
 from __future__ import annotations
 
-
 from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel
@@ -32,11 +31,11 @@ class APIResponse(BaseModel, Generic[T]):
     error: APIError | None = None
 
     @classmethod
-    def success(cls, data: Any) -> "APIResponse":
+    def success(cls, data: Any) -> APIResponse:
         """Create a success response."""
         return cls(data=data, error=None)
 
     @classmethod
-    def fail(cls, code: str, message: str) -> "APIResponse":
+    def fail(cls, code: str, message: str) -> APIResponse:
         """Create an error response."""
         return cls(data=None, error=APIError(code=code, message=message))

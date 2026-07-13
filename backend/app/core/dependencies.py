@@ -3,21 +3,15 @@ FastAPI dependencies for authentication and shared resources.
 """
 from __future__ import annotations
 
-
-from fastapi import Cookie, Depends, HTTPException, Query, status
-from sqlalchemy.ext.asyncio import AsyncSession
-
 import jwt as pyjwt
+from fastapi import Cookie, Header, HTTPException, Query, status
 
-from app.core.config import settings
-from app.core.database import get_db_session
 from app.core.security import decode_access_token
 
 
 async def get_current_user_id(
-    authorization: str | None = None,
+    authorization: str | None = Header(None),
     token: str | None = Query(None, alias="token"),
-    db: AsyncSession = Depends(get_db_session),
 ) -> str:
     """
     Extract and verify the current user ID from a JWT access token.
@@ -54,18 +48,18 @@ async def get_current_user_id(
                 detail="Invalid token payload",
             )
         return user_id
-    except pyjwt.ExpiredSignatureError:
+    except pyjwt.ExpiredSignatureError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token has expired",
             headers={"WWW-Authenticate": "Bearer"},
-        )
-    except pyjwt.InvalidTokenError:
+        ) from exc
+    except pyjwt.InvalidTokenError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token",
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from exc
 
 
 async def get_refresh_token_from_cookie(

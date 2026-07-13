@@ -6,7 +6,6 @@ including token rotation and reuse detection.
 """
 
 import pytest
-import pytest_asyncio
 
 from tests.conftest import create_test_user
 
@@ -31,7 +30,6 @@ class TestRegister:
     async def test_register_duplicate_email(self, client, db_session):
         """Should reject duplicate email registration."""
         await create_test_user(db_session, email="existing@example.com")
-        await db_session.commit()
 
         response = await client.post("/auth/register", json={
             "email": "existing@example.com",
@@ -72,7 +70,6 @@ class TestLogin:
             email="login@example.com",
             password="loginpass123",
         )
-        await db_session.commit()
 
         response = await client.post("/auth/login", json={
             "email": "login@example.com",
@@ -89,7 +86,6 @@ class TestLogin:
             email="wrongpass@example.com",
             password="correctpass",
         )
-        await db_session.commit()
 
         response = await client.post("/auth/login", json={
             "email": "wrongpass@example.com",

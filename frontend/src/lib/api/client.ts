@@ -31,7 +31,7 @@ export function getAccessToken(): string | null {
 }
 
 /** Attempt to refresh the access token using the refresh cookie. */
-async function refreshAccessToken(): Promise<boolean> {
+export async function refreshAccessToken(): Promise<boolean> {
   try {
     const res = await fetch(`${API_BASE}/auth/refresh`, {
       method: 'POST',

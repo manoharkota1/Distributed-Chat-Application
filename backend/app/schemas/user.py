@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class UserResponse(BaseModel):
@@ -25,3 +25,17 @@ class SessionResponse(BaseModel):
     expires_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class UpdateProfileRequest(BaseModel):
+    """Profile update payload (partial)."""
+
+    display_name: str | None = Field(None, min_length=1, max_length=100)
+
+
+class ChangePasswordRequest(BaseModel):
+    """Password change payload."""
+
+    current_password: str
+    new_password: str = Field(..., min_length=8, max_length=128)
+

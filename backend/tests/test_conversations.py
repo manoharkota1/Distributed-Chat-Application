@@ -15,7 +15,6 @@ class TestConversations:
         """Should create a direct conversation between two users."""
         user1 = await create_test_user(db_session, email="user1@test.com", display_name="User 1")
         user2 = await create_test_user(db_session, email="user2@test.com", display_name="User 2")
-        await db_session.commit()
 
         response = await client.post(
             "/conversations",
@@ -34,7 +33,6 @@ class TestConversations:
         user1 = await create_test_user(db_session, email="g1@test.com", display_name="User 1")
         user2 = await create_test_user(db_session, email="g2@test.com", display_name="User 2")
         user3 = await create_test_user(db_session, email="g3@test.com", display_name="User 3")
-        await db_session.commit()
 
         response = await client.post(
             "/conversations",
@@ -54,7 +52,6 @@ class TestConversations:
         """Group conversations must have a name."""
         user1 = await create_test_user(db_session, email="gn1@test.com", display_name="User 1")
         user2 = await create_test_user(db_session, email="gn2@test.com", display_name="User 2")
-        await db_session.commit()
 
         response = await client.post(
             "/conversations",
@@ -72,7 +69,6 @@ class TestConversations:
         """Should return the user's conversations."""
         user1 = await create_test_user(db_session, email="list1@test.com", display_name="User 1")
         user2 = await create_test_user(db_session, email="list2@test.com", display_name="User 2")
-        await db_session.commit()
 
         # Create a conversation first
         await client.post(
@@ -103,7 +99,6 @@ class TestMessages:
         """Should send a message to a conversation."""
         user1 = await create_test_user(db_session, email="msg1@test.com", display_name="User 1")
         user2 = await create_test_user(db_session, email="msg2@test.com", display_name="User 2")
-        await db_session.commit()
 
         # Create conversation
         convo_resp = await client.post(
@@ -128,7 +123,6 @@ class TestMessages:
         """Should retrieve messages with cursor pagination."""
         user1 = await create_test_user(db_session, email="pag1@test.com", display_name="User 1")
         user2 = await create_test_user(db_session, email="pag2@test.com", display_name="User 2")
-        await db_session.commit()
 
         # Create conversation
         convo_resp = await client.post(

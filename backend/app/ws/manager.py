@@ -6,9 +6,7 @@ This is per-instance state — Redis Pub/Sub handles cross-instance delivery.
 """
 from __future__ import annotations
 
-
 import asyncio
-import json
 import logging
 from collections import defaultdict
 

@@ -24,10 +24,20 @@ export default function LoginPage() {
 
   return (
     <div className="auth-container">
-      <div className="auth-card glass-card">
+      <aside className="auth-aside">
+        <div className="auth-brand"><span className="app-mark">DC</span> Distributed Chat</div>
+        <div className="auth-aside-content">
+          <p className="eyebrow">Real-time collaboration</p>
+          <h1>Thoughtful conversations, beautifully organised.</h1>
+          <p>Stay connected with the people and teams that matter, from any device.</p>
+        </div>
+        <span className="auth-aside-note">Simple, secure, and always in sync.</span>
+      </aside>
+      <main className="auth-panel">
+      <div className="auth-card">
         <div className="auth-header">
-          <h1>Welcome Back</h1>
-          <p>Sign in to your account to continue</p>
+          <h2>Welcome back</h2>
+          <p>Sign in to continue to your messages.</p>
         </div>
 
         {error && <div className="auth-error">{error}</div>}
@@ -67,12 +77,11 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            className="btn btn-primary"
+            className="btn btn-primary btn-full"
             disabled={loading}
-            style={{ width: '100%', padding: '14px' }}
           >
             {loading ? (
-              <span className="loading-spinner" style={{ width: 18, height: 18 }} />
+              <span className="loading-spinner" aria-label="Signing in" />
             ) : (
               'Sign In'
             )}
@@ -81,9 +90,10 @@ export default function LoginPage() {
 
         <div className="auth-footer">
           Don&apos;t have an account?{' '}
-          <Link href="/register">Create one</Link>
+          <Link href="/register" className="text-link">Create an account</Link>
         </div>
       </div>
+      </main>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api/client';
 import { wsClient } from '@/lib/ws/socket';
@@ -61,12 +62,7 @@ export default function InboxPage() {
     }
   }, [setMessages]);
 
-  // Redirect if not authenticated
-  useEffect(() => {
-    if (!isAuthenticated) {
-      router.push('/login');
-    }
-  }, [isAuthenticated, router]);
+
 
   // Load conversations on mount
   useEffect(() => {
@@ -80,6 +76,7 @@ export default function InboxPage() {
     const unsubs = [
       wsClient.on('message.new', (payload) => {
         const convoId = payload.conversation_id as string;
+        const tempId = payload.client_temp_id as string | undefined;
         const message: Message = {
           id: payload.id as string,
           conversation_id: convoId,
@@ -87,7 +84,11 @@ export default function InboxPage() {
           content: payload.content as string,
           created_at: payload.created_at as string,
         };
-        addMessage(convoId, message);
+        if (tempId) {
+          reconcileMessage(convoId, tempId, message);
+        } else {
+          addMessage(convoId, message);
+        }
       }),
 
       wsClient.on('message.ack', (payload) => {
@@ -209,10 +210,10 @@ export default function InboxPage() {
     <div>
       {/* Navbar */}
       <nav className="navbar">
-        <span className="navbar-brand">💬 Distributed Chat</span>
+        <span className="navbar-brand"><span className="app-mark">DC</span> Distributed Chat</span>
         <div className="navbar-links">
-          <a href="/profile" className="btn btn-ghost">Profile</a>
-          <a href="/sessions" className="btn btn-ghost">Sessions</a>
+          <Link href="/profile" className="btn btn-ghost">Profile</Link>
+          <Link href="/sessions" className="btn btn-ghost">Sessions</Link>
           <button onClick={logout} className="btn btn-ghost">
             Logout
           </button>
@@ -220,23 +221,24 @@ export default function InboxPage() {
       </nav>
 
       {/* Main Layout */}
-      <div className="app-layout" style={{ height: 'calc(100vh - 52px)' }}>
+      <main className="app-layout">
         {/* Sidebar */}
         <div className="sidebar">
           <div className="sidebar-header">
-            <h2>Messages</h2>
+            <h1>Messages</h1>
             <button
               className="btn btn-secondary"
               onClick={() => setShowNewChat(!showNewChat)}
-              style={{ padding: '6px 12px', fontSize: '0.8rem' }}
+              aria-expanded={showNewChat}
+              aria-controls="new-chat-panel"
             >
-              {showNewChat ? '✕' : '+ New'}
+              {showNewChat ? 'Close' : 'New chat'}
             </button>
           </div>
 
           {/* New Chat Search */}
           {showNewChat && (
-            <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-subtle)' }}>
+            <div className="new-chat-panel" id="new-chat-panel">
               <input
                 type="text"
                 className="input"
@@ -246,12 +248,14 @@ export default function InboxPage() {
                 autoFocus
               />
               {searchResults.length > 0 && (
-                <div style={{ marginTop: '8px' }}>
+                <div className="search-results" role="listbox" aria-label="People matching your search">
                   {searchResults.map((u) => (
-                    <div
+                    <button
                       key={u.id}
                       className="conversation-item"
                       onClick={() => handleStartChat(u.id)}
+                      role="option"
+                      aria-selected={false}
                     >
                       <div className="conversation-avatar">
                         {getInitials(u.display_name)}
@@ -260,7 +264,7 @@ export default function InboxPage() {
                         <div className="conversation-name">{u.display_name}</div>
                         <div className="conversation-preview">{u.email}</div>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}
@@ -274,19 +278,20 @@ export default function InboxPage() {
                 <div className="loading-spinner" />
               </div>
             ) : conversations.length === 0 ? (
-              <div className="empty-state" style={{ padding: '40px 20px' }}>
-                <div className="empty-state-icon">💬</div>
+              <div className="empty-state">
+                <div className="empty-state-icon">✦</div>
                 <h3>No conversations yet</h3>
                 <p>Start a new conversation to begin chatting</p>
               </div>
             ) : (
               conversations.map((convo) => (
-                <div
+                <button
                   key={convo.id}
                   className={`conversation-item ${
                     convo.id === activeConversationId ? 'active' : ''
                   }`}
                   onClick={() => setActiveConversation(convo.id)}
+                  aria-pressed={convo.id === activeConversationId}
                 >
                   <div className="conversation-avatar">
                     {getInitials(getConversationName(convo))}
@@ -309,7 +314,7 @@ export default function InboxPage() {
                       <span className="unread-badge">{convo.unread_count}</span>
                     )}
                   </div>
-                </div>
+                </button>
               ))
             )}
           </div>
@@ -321,17 +326,17 @@ export default function InboxPage() {
             <>
               {/* Chat Header */}
               <div className="chat-header">
-                <div className="conversation-avatar" style={{ width: 38, height: 38, fontSize: '0.9rem' }}>
+                <div className="conversation-avatar">
                   {getInitials(getConversationName(activeConversation))}
                 </div>
                 <div className="chat-header-info">
-                  <h3>{getConversationName(activeConversation)}</h3>
+                  <h2>{getConversationName(activeConversation)}</h2>
                   <span className="status">
                     {activeConversation.type === 'group'
                       ? `${activeConversation.members.length} members`
                       : activeConversation.members.find((m) => m.user_id !== user?.id)?.is_online
-                        ? '🟢 Online'
-                        : '⚫ Offline'}
+                        ? <><span className="status-dot online" />Online</>
+                        : <><span className="status-dot" />Offline</>}
                   </span>
                 </div>
               </div>
@@ -340,7 +345,7 @@ export default function InboxPage() {
               <div className="chat-messages">
                 {activeMessages.length === 0 ? (
                   <div className="empty-state">
-                    <div className="empty-state-icon">✉️</div>
+                    <div className="empty-state-icon">✦</div>
                     <h3>Start the conversation</h3>
                     <p>Send a message to get things going</p>
                   </div>
@@ -417,20 +422,22 @@ export default function InboxPage() {
                     disabled={!messageInput.trim()}
                     aria-label="Send message"
                   >
-                    ➤
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path d="m4 12 15-8-4 16-4-6-7-2Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+                    </svg>
                   </button>
                 </div>
               </div>
             </>
           ) : (
             <div className="empty-state">
-              <div className="empty-state-icon">💬</div>
+              <div className="empty-state-icon">✦</div>
               <h3>Select a conversation</h3>
               <p>Choose a conversation from the sidebar or start a new one</p>
             </div>
           )}
         </div>
-      </div>
+      </main>
     </div>
   );
 }

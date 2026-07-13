@@ -8,7 +8,6 @@ Security design follows the README specification:
 """
 from __future__ import annotations
 
-
 import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
