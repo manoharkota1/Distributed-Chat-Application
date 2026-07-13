@@ -20,7 +20,10 @@ class Settings(BaseSettings):
     debug: bool = False
     backend_host: str = "0.0.0.0"
     backend_port: int = 8000
-    backend_cors_origins: list[str] = ["http://localhost:3000"]
+    backend_cors_origins: list[str] = [
+        "http://localhost:3000",
+        "https://frontend-nu-two-49.vercel.app",
+    ]
 
     mongodb_uri: str = ""
     mongodb_database: str = "chat_db"

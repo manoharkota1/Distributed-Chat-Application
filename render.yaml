@@ -24,4 +24,4 @@ services:
       - key: COOKIE_SECURE
         value: "true"
       - key: BACKEND_CORS_ORIGINS
-        value: '["http://localhost:3000"]' # We will update this with your Vercel URL once deployed
+        value: '["https://frontend-nu-two-49.vercel.app", "http://localhost:3000"]'
