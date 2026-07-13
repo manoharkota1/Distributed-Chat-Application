@@ -21,8 +21,11 @@ class SessionResponse(BaseModel):
 
     id: str
     device_info: str | None
+    ip_address: str | None = None
     created_at: datetime
     expires_at: datetime
+    last_activity: datetime | None = None
+    is_current: bool = False
 
     model_config = {"from_attributes": True}
 

@@ -62,6 +62,26 @@ async def get_current_user_id(
         ) from exc
 
 
+async def get_current_session_id(
+    authorization: str | None = Header(None),
+    token: str | None = Query(None, alias="token"),
+) -> str | None:
+    """Extract the session ID (sid) from the decoded JWT access token."""
+    raw_token: str | None = None
+    if authorization and authorization.startswith("Bearer "):
+        raw_token = authorization[7:]
+    elif token:
+        raw_token = token
+
+    if raw_token is None:
+        return None
+    try:
+        payload = decode_access_token(raw_token)
+        return payload.get("sid")
+    except Exception:
+        return None
+
+
 async def get_refresh_token_from_cookie(
     refresh_token: str | None = Cookie(None),
 ) -> str:

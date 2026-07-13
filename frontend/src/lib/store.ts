@@ -95,15 +95,19 @@ export const useAppStore = create<AppState>((set, get) => ({
   // ── Messages ───────────────────────────────────────────────
   messages: {},
   addMessage: (conversationId, message) =>
-    set((state) => ({
-      messages: {
-        ...state.messages,
-        [conversationId]: [
-          ...(state.messages[conversationId] || []),
-          message,
-        ],
-      },
-    })),
+    set((state) => {
+      const current = state.messages[conversationId] || [];
+      // Prevent duplicates by ID
+      if (current.some((m) => m.id === message.id)) {
+        return {};
+      }
+      return {
+        messages: {
+          ...state.messages,
+          [conversationId]: [...current, message],
+        },
+      };
+    }),
   setMessages: (conversationId, messages) =>
     set((state) => ({
       messages: { ...state.messages, [conversationId]: messages },
@@ -119,16 +123,28 @@ export const useAppStore = create<AppState>((set, get) => ({
       },
     })),
   reconcileMessage: (conversationId, tempId, message) =>
-    set((state) => ({
-      messages: {
-        ...state.messages,
-        [conversationId]: (state.messages[conversationId] || []).map((m) =>
-          m.client_temp_id === tempId
-            ? { ...message, pending: false }
-            : m
-        ),
-      },
-    })),
+    set((state) => {
+      const current = state.messages[conversationId] || [];
+      // Prevent duplicates if already added via message.new before message.ack
+      if (current.some((m) => m.id === message.id)) {
+        return {
+          messages: {
+            ...state.messages,
+            [conversationId]: current.filter((m) => m.client_temp_id !== tempId),
+          },
+        };
+      }
+      return {
+        messages: {
+          ...state.messages,
+          [conversationId]: current.map((m) =>
+            m.client_temp_id === tempId
+              ? { ...message, pending: false }
+              : m
+          ),
+        },
+      };
+    }),
 
   // ── Typing ─────────────────────────────────────────────────
   typingUsers: {},

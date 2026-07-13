@@ -12,7 +12,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.core.database import get_db
 from app.core.dependencies import get_current_user_id
 from app.schemas.common import APIResponse
-from app.schemas.conversation import ConversationCreate, ReadUpdateRequest
+from app.schemas.conversation import ConversationCreate, ReadUpdateRequest, MemberAddRequest
 from app.schemas.message import MessageCreate
 from app.services.conversation_service import ConversationService, ConversationServiceError
 from app.services.message_service import MessageService, MessageServiceError
@@ -139,3 +139,49 @@ async def update_read_position(
         return APIResponse.fail(e.code, e.message)
 
     return APIResponse.success({"message": "Read position updated"})
+
+
+@router.post("/{conversation_id}/members")
+async def add_group_member(
+    conversation_id: str,
+    body: MemberAddRequest,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncDatabase = Depends(get_db),
+) -> APIResponse:
+    """Add a user to a group conversation."""
+    service = ConversationService(db)
+    try:
+        convo = await service.add_member(
+            conversation_id=conversation_id,
+            operator_id=user_id,
+            user_id_to_add=body.user_id,
+        )
+    except ConversationServiceError as e:
+        return APIResponse.fail(e.code, e.message)
+    return APIResponse.success({
+        "id": convo["id"],
+        "member_ids": convo["member_ids"],
+    })
+
+
+@router.delete("/{conversation_id}/members/{user_id_to_remove}")
+async def remove_group_member(
+    conversation_id: str,
+    user_id_to_remove: str,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncDatabase = Depends(get_db),
+) -> APIResponse:
+    """Remove a user from a group conversation (or leave the group)."""
+    service = ConversationService(db)
+    try:
+        convo = await service.remove_member(
+            conversation_id=conversation_id,
+            operator_id=user_id,
+            user_id_to_remove=user_id_to_remove,
+        )
+    except ConversationServiceError as e:
+        return APIResponse.fail(e.code, e.message)
+    return APIResponse.success({
+        "id": convo["id"],
+        "member_ids": convo["member_ids"],
+    })

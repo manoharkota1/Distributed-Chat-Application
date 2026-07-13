@@ -6,7 +6,7 @@ Refresh tokens are delivered as httpOnly, Secure, SameSite=Strict cookies.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Header, Response
+from fastapi import APIRouter, Depends, Header, Response, Request
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.config import settings
@@ -17,6 +17,14 @@ from app.schemas.common import APIResponse
 from app.services.auth_service import AuthService, AuthServiceError
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+def get_client_ip(request: Request) -> str:
+    x_forwarded_for = request.headers.get("x-forwarded-for")
+    if x_forwarded_for:
+        return x_forwarded_for.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
 
 # Cookie configuration for refresh tokens
 REFRESH_COOKIE_NAME = "refresh_token"
@@ -51,6 +59,7 @@ def _clear_refresh_cookie(response: Response) -> None:
 async def register(
     body: RegisterRequest,
     response: Response,
+    request: Request,
     user_agent: str | None = Header(None),
     db: AsyncDatabase = Depends(get_db),
 ) -> APIResponse:
@@ -60,12 +69,14 @@ async def register(
     The refresh token is set as an httpOnly cookie.
     """
     auth_service = AuthService(db)
+    ip_address = get_client_ip(request)
     try:
         user, access_token, raw_refresh = await auth_service.register(
             email=body.email,
             password=body.password,
             display_name=body.display_name,
             device_info=user_agent,
+            ip_address=ip_address,
         )
     except AuthServiceError as e:
         return APIResponse.fail(e.code, e.message)
@@ -84,6 +95,7 @@ async def register(
 async def login(
     body: LoginRequest,
     response: Response,
+    request: Request,
     user_agent: str | None = Header(None),
     db: AsyncDatabase = Depends(get_db),
 ) -> APIResponse:
@@ -93,11 +105,13 @@ async def login(
     The refresh token is set as an httpOnly cookie.
     """
     auth_service = AuthService(db)
+    ip_address = get_client_ip(request)
     try:
         user, access_token, raw_refresh = await auth_service.login(
             email=body.email,
             password=body.password,
             device_info=user_agent,
+            ip_address=ip_address,
         )
     except AuthServiceError as e:
         return APIResponse.fail(e.code, e.message)
@@ -115,6 +129,7 @@ async def login(
 @router.post("/refresh")
 async def refresh(
     response: Response,
+    request: Request,
     raw_refresh: str = Depends(get_refresh_token_from_cookie),
     user_agent: str | None = Header(None),
     db: AsyncDatabase = Depends(get_db),
@@ -125,10 +140,12 @@ async def refresh(
     Detects reuse of a stolen token and revokes the entire session chain.
     """
     auth_service = AuthService(db)
+    ip_address = get_client_ip(request)
     try:
         access_token, new_raw_refresh = await auth_service.refresh_tokens(
             raw_refresh_token=raw_refresh,
             device_info=user_agent,
+            ip_address=ip_address,
         )
     except AuthServiceError as e:
         _clear_refresh_cookie(response)
@@ -159,4 +176,10 @@ async def logout(
         return APIResponse.fail(e.code, e.message)
 
     _clear_refresh_cookie(response)
+    try:
+        from app.core.redis import get_redis
+        redis = await get_redis()
+        await redis.delete(f"user:profile:{user_id}")
+    except Exception:
+        pass
     return APIResponse.success({"message": "Logged out successfully"})

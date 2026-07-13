@@ -14,7 +14,9 @@ export type WSEventType =
   | 'presence.update'
   | 'read.receipt'
   | 'error'
-  | 'pong';
+  | 'pong'
+  | 'connect'
+  | 'disconnect';
 
 export interface WSMessage {
   type: string;
@@ -54,6 +56,7 @@ class WebSocketClient {
         console.log('[WS] Connected');
         this.reconnectAttempts = 0;
         this.startHeartbeat();
+        this.emit('connect', {});
       };
 
       this.ws.onmessage = (event: MessageEvent) => {
@@ -68,6 +71,7 @@ class WebSocketClient {
       this.ws.onclose = (event: CloseEvent) => {
         console.log('[WS] Disconnected:', event.code, event.reason);
         this.stopHeartbeat();
+        this.emit('disconnect', {});
 
         // Don't reconnect on auth failure
         if (event.code === 4001) {

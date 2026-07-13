@@ -157,7 +157,6 @@ class TestMessages:
         user1 = await create_test_user(db_session, email="nm1@test.com", display_name="User 1")
         user2 = await create_test_user(db_session, email="nm2@test.com", display_name="User 2")
         user3 = await create_test_user(db_session, email="nm3@test.com", display_name="User 3")
-        await db_session.commit()
 
         # Create conversation between user1 and user2
         convo_resp = await client.post(
@@ -176,3 +175,42 @@ class TestMessages:
         data = response.json()
         assert data["error"] is not None
         assert data["error"]["code"] == "NOT_A_MEMBER"
+
+
+@pytest.mark.asyncio
+class TestGroupMembers:
+    """Tests for group member management."""
+
+    async def test_add_and_remove_group_member(self, client, db_session):
+        """Should add a user to group, then remove them successfully."""
+        user1 = await create_test_user(db_session, email="gm1@test.com", display_name="User 1")
+        user2 = await create_test_user(db_session, email="gm2@test.com", display_name="User 2")
+        user3 = await create_test_user(db_session, email="gm3@test.com", display_name="User 3")
+
+        convo_resp = await client.post(
+            "/conversations",
+            json={
+                "type": "group",
+                "name": "Member Test Group",
+                "member_ids": [str(user2.id)],
+            },
+            headers=make_auth_header(str(user1.id)),
+        )
+        convo_id = convo_resp.json()["data"]["id"]
+
+        add_resp = await client.post(
+            f"/conversations/{convo_id}/members",
+            json={"user_id": str(user3.id)},
+            headers=make_auth_header(str(user1.id)),
+        )
+        add_data = add_resp.json()
+        assert add_data["error"] is None
+        assert str(user3.id) in add_data["data"]["member_ids"]
+
+        remove_resp = await client.delete(
+            f"/conversations/{convo_id}/members/{user3.id}",
+            headers=make_auth_header(str(user1.id)),
+        )
+        remove_data = remove_resp.json()
+        assert remove_data["error"] is None
+        assert str(user3.id) not in remove_data["data"]["member_ids"]

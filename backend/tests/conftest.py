@@ -19,7 +19,7 @@ from app.core.security import create_access_token, hash_password
 from app.main import app
 
 
-@pytest_asyncio.fixture(scope="session")
+@pytest_asyncio.fixture
 async def mongo_client() -> AsyncGenerator[AsyncMongoClient, None]:
     uri = os.getenv("MONGODB_URI")
     if not uri:

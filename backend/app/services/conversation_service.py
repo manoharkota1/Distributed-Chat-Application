@@ -7,7 +7,8 @@ from datetime import datetime, timezone
 from pymongo import DESCENDING
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.core.redis import get_online_users
+import json
+from app.core.redis import get_online_users, get_redis, EVENT_CHANNEL
 
 
 class ConversationServiceError(Exception):
@@ -93,6 +94,79 @@ class ConversationService:
     async def get_conversation_member_ids(self, conversation_id: str) -> list[str]:
         conversation = await self.db.conversations.find_one({"id": conversation_id}, {"member_ids": 1})
         return conversation.get("member_ids", []) if conversation else []
+
+    async def add_member(self, conversation_id: str, operator_id: str, user_id_to_add: str) -> dict:
+        if not await self.verify_membership(conversation_id, operator_id):
+            raise ConversationServiceError("NOT_A_MEMBER", "You are not a member of this conversation")
+
+        convo = await self.db.conversations.find_one({"id": conversation_id})
+        if not convo:
+            raise ConversationServiceError("CONVERSATION_NOT_FOUND", "Conversation not found")
+        if convo["type"] != "group":
+            raise ConversationServiceError("INVALID_TYPE", "Cannot add members to a direct conversation")
+
+        if user_id_to_add in convo["member_ids"]:
+            raise ConversationServiceError("ALREADY_MEMBER", "User is already a member of this conversation")
+
+        user_exists = await self.db.users.find_one({"id": user_id_to_add}, {"_id": 1})
+        if not user_exists:
+            raise ConversationServiceError("USER_NOT_FOUND", f"User not found")
+
+        now = datetime.now(timezone.utc)
+        await self.db.conversations.update_one(
+            {"id": conversation_id},
+            {
+                "$addToSet": {"member_ids": user_id_to_add},
+                "$push": {"members": {"user_id": user_id_to_add, "last_read_message_id": None, "joined_at": now}}
+            }
+        )
+        updated_convo = await self.db.conversations.find_one({"id": conversation_id})
+        
+        r = await get_redis()
+        await r.publish(EVENT_CHANNEL, json.dumps({
+            "type": "conversation.update",
+            "payload": {
+                "conversation_id": conversation_id,
+                "action": "member_added",
+                "user_id": user_id_to_add,
+            }
+        }))
+        return updated_convo
+
+    async def remove_member(self, conversation_id: str, operator_id: str, user_id_to_remove: str) -> dict:
+        if not await self.verify_membership(conversation_id, operator_id):
+            raise ConversationServiceError("NOT_A_MEMBER", "You are not a member of this conversation")
+
+        convo = await self.db.conversations.find_one({"id": conversation_id})
+        if not convo:
+            raise ConversationServiceError("CONVERSATION_NOT_FOUND", "Conversation not found")
+        if convo["type"] != "group":
+            raise ConversationServiceError("INVALID_TYPE", "Cannot remove members from a direct conversation")
+
+        if user_id_to_remove not in convo["member_ids"]:
+            raise ConversationServiceError("NOT_A_MEMBER", "User is not a member of this conversation")
+
+        await self.db.conversations.update_one(
+            {"id": conversation_id},
+            {
+                "$pull": {
+                    "member_ids": user_id_to_remove,
+                    "members": {"user_id": user_id_to_remove}
+                }
+            }
+        )
+        updated_convo = await self.db.conversations.find_one({"id": conversation_id})
+
+        r = await get_redis()
+        await r.publish(EVENT_CHANNEL, json.dumps({
+            "type": "conversation.update",
+            "payload": {
+                "conversation_id": conversation_id,
+                "action": "member_removed",
+                "user_id": user_id_to_remove,
+            }
+        }))
+        return updated_convo
 
     @staticmethod
     def _message_preview(message: dict | None) -> dict | None:

@@ -47,3 +47,9 @@ class ReadUpdateRequest(BaseModel):
     """Payload to update read position."""
 
     message_id: str
+
+
+class MemberAddRequest(BaseModel):
+    """Payload to add a member to a group conversation."""
+
+    user_id: str

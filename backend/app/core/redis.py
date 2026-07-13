@@ -27,6 +27,10 @@ class AsyncUpstashRedis:
         operation: Callable[..., Any] = getattr(self._client, method)
         return await asyncio.to_thread(operation, *args, **kwargs)
 
+    async def get(self, key: str) -> str | None:
+        val = await self._call("get", key)
+        return str(val) if val is not None else None
+
     async def set(self, key: str, value: str, ex: int | None = None) -> Any:
         return await self._call("set", key, value, ex=ex)
 
