@@ -27,6 +27,9 @@ class AsyncUpstashRedis:
         operation: Callable[..., Any] = getattr(self._client, method)
         return await asyncio.to_thread(operation, *args, **kwargs)
 
+    async def close(self) -> None:
+        await self._call("close")
+
     async def get(self, key: str) -> str | None:
         val = await self._call("get", key)
         return str(val) if val is not None else None
@@ -47,6 +50,8 @@ class AsyncUpstashRedis:
         return await self._call("execute", command)
 
     async def exists_many(self, keys: list[str]) -> list[int]:
+        if not keys:
+            return []
         def pipeline_exists() -> list[int]:
             pipeline = self._client.pipeline()
             for key in keys:
@@ -76,7 +81,12 @@ async def get_redis() -> AsyncUpstashRedis:
 async def close_redis() -> None:
     """Reset the connectionless Upstash client facade during shutdown."""
     global _redis
-    _redis = None
+    if _redis is not None:
+        try:
+            await _redis.close()
+        except Exception:
+            pass
+        _redis = None
 
 
 async def set_user_online(user_id: str) -> None:
