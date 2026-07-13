@@ -4,7 +4,7 @@ A horizontally scalable, real-time messaging platform built with **Next.js**, **
 
 **Author:** Kota Manohar
 
-[![Live Demo](https://img.shields.io/badge/demo-live-brightgreen)](https://frontend-nu-two-49.vercel.app)
+[![Live Demo](https://img.shields.io/badge/demo-live-brightgreen)](https://distributed-chat-application.vercel.app)
 [![GitHub](https://img.shields.io/badge/github-repo-blue)](https://github.com/manoharkota1/Distributed-Chat-Application)
 [![LinkedIn](https://img.shields.io/badge/linkedin-connect-0A66C2)](https://linkedin.com/in/manoharkota-in)
 
