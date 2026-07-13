@@ -52,13 +52,14 @@ class AsyncUpstashRedis:
     async def exists_many(self, keys: list[str]) -> list[int]:
         if not keys:
             return []
-        def pipeline_exists() -> list[int]:
+        def pipeline_exists() -> list[Any]:
             pipeline = self._client.pipeline()
             for key in keys:
                 pipeline.exists(key)
             return pipeline.exec()
 
-        return [int(value) for value in await asyncio.to_thread(pipeline_exists)]
+        res = await asyncio.to_thread(pipeline_exists)
+        return [int(value) for value in res]
 
 
 _redis: AsyncUpstashRedis | None = None
