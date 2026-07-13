@@ -49,6 +49,7 @@ export function useAuth() {
         }>('/users/me');
         if (profileRes.data) {
           setUser(profileRes.data);
+          localStorage.setItem('has_session', 'true');
         }
         wsClient.connect();
       }
@@ -84,6 +85,7 @@ export function useAuth() {
         }>('/users/me');
         if (profileRes.data) {
           setUser(profileRes.data);
+          localStorage.setItem('has_session', 'true');
         }
         wsClient.connect();
       }
@@ -99,6 +101,7 @@ export function useAuth() {
     setAccessToken(null);
     setUser(null);
     wsClient.disconnect();
+    localStorage.removeItem('has_session');
   }, [setUser]);
 
   return { user, isAuthenticated, loading, error, register, login, logout };
