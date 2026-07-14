@@ -27,8 +27,15 @@ export interface WSMessage {
 type EventHandler = (payload: Record<string, unknown>) => void;
 
 const getWsBase = (): string => {
-  if (process.env.NEXT_PUBLIC_WS_URL) {
-    return process.env.NEXT_PUBLIC_WS_URL;
+  const configuredWsBase = process.env.NEXT_PUBLIC_WS_URL;
+  const isInvalidProductionLocalhost =
+    process.env.NODE_ENV === 'production' &&
+    /^wss?:\/\/localhost(?::\d+)?\/?$/i.test(configuredWsBase || '');
+  if (configuredWsBase && !isInvalidProductionLocalhost) {
+    return configuredWsBase;
+  }
+  if (process.env.NODE_ENV === 'production') {
+    return 'wss://distributed-chat-application-u5v6.onrender.com';
   }
   if (typeof window !== 'undefined') {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';

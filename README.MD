@@ -281,6 +281,23 @@ pnpm dev
 Use `COOKIE_SECURE=false` only when testing on local HTTP. Set it to `true` for an
 HTTPS deployment.
 
+### Vercel frontend configuration
+
+`NEXT_PUBLIC_*` variables are compiled into the browser bundle during the Vercel
+build. In Vercel, set the following **Production** environment variables and
+redeploy the frontend (changing them after a deployment does not update an
+already-built site):
+
+```dotenv
+NEXT_PUBLIC_API_URL=https://distributed-chat-application-u5v6.onrender.com
+NEXT_PUBLIC_WS_URL=wss://distributed-chat-application-u5v6.onrender.com
+```
+
+Do not use `localhost:8000` for a deployed frontend: in a user's browser it
+points to that user's own computer, not to Render. Also add the exact Vercel
+frontend origin to `BACKEND_CORS_ORIGINS` in Render if it differs from the
+configured Vercel domain.
+
 **CI/CD Pipeline (GitHub Actions)**
 
 1. Lint and static analysis on every push

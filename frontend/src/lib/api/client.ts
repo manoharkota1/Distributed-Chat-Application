@@ -16,7 +16,21 @@ export interface APIResponse<T = unknown> {
   error: APIError | null;
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
+/**
+ * Public environment variables are embedded when Next.js builds the frontend.
+ * Keep local development local, but use the deployed API if a production build
+ * was created without NEXT_PUBLIC_API_URL.
+ */
+const configuredApiBase = process.env.NEXT_PUBLIC_API_URL;
+const isInvalidProductionLocalhost =
+  process.env.NODE_ENV === 'production' &&
+  /^https?:\/\/localhost(?::\d+)?\/?$/i.test(configuredApiBase || '');
+const API_BASE =
+  !isInvalidProductionLocalhost && configuredApiBase
+    ? configuredApiBase
+    : process.env.NODE_ENV === 'production'
+      ? 'https://distributed-chat-application-u5v6.onrender.com'
+      : 'http://localhost:8000';
 
 let accessToken: string | null = null;
 
