@@ -16,7 +16,7 @@ export interface APIResponse<T = unknown> {
   error: APIError | null;
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
 let accessToken: string | null = null;
 
