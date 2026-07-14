@@ -173,6 +173,8 @@ export default function InboxPage() {
               message_id: message.id,
             });
           }
+        } else {
+          loadConversations();
         }
       }),
 
@@ -199,9 +201,20 @@ export default function InboxPage() {
       }),
 
       wsClient.on('conversation.update', (payload) => {
-        loadConversations();
         const activeId = useAppStore.getState().activeConversationId;
-        if (activeId && activeId === payload.conversation_id) {
+        const currentUser = useAppStore.getState().user;
+        const isTargetRemovedUser = payload.action === 'member_removed' && payload.user_id === currentUser?.id;
+
+        if (isTargetRemovedUser) {
+          if (activeId === payload.conversation_id) {
+            setActiveConversation(null);
+            setShowGroupDetails(false);
+          }
+        }
+
+        loadConversations();
+
+        if (activeId && activeId === payload.conversation_id && !isTargetRemovedUser) {
           loadMessages(activeId);
         }
       }),

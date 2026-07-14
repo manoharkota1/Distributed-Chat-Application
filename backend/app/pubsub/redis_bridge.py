@@ -76,6 +76,10 @@ class RedisBridge:
             if conversation is None:
                 return
             member_ids = [user_id for user_id in connected_users if user_id in conversation["member_ids"]]
+            if data.get("type") == "conversation.update" and payload.get("action") == "member_removed":
+                removed_uid = payload.get("user_id")
+                if removed_uid and removed_uid in connected_users and removed_uid not in member_ids:
+                    member_ids.append(removed_uid)
             await manager.broadcast_to_users(member_ids, {"type": data.get("type"), "payload": payload})
         except (json.JSONDecodeError, ValueError, KeyError):
             logger.warning("upstash_event_invalid")
